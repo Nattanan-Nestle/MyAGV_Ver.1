@@ -100,7 +100,13 @@ class ArmController:
         if not self.mc:
             return
         rospy.loginfo("Moving arm to home pose...")
-        self.mc.send_angles([0, 0, 0, 0, 0, 0], ARM_SPEED)
+        self.mc.set_gripper_state(0, 100) 
+        rospy.sleep(5)
+        self.mc.send_angles([0, 45, -120, -13, 0, -45],ARM_SPEED)
+        rospy.sleep(5)
+        
+        print("สั่ง gripper หนีบ...")
+        self.mc.set_gripper_state(1, 100)   # 1 = ปิด
         rospy.sleep(5)
 
     def place_object(self):
@@ -112,9 +118,9 @@ class ArmController:
             return False
 
         rospy.loginfo(f"Moving arm to place position: {PLACE_COORDS}")
-        self.mc.send_coords(PLACE_COORDS, ARM_SPEED)
+        self.mc.send_coords([257.6, -60.4, 300.0, 177.34, 0.0, -45.28], ARM_SPEED)
         rospy.sleep(5)  # ปรับตามระยะทางจริง
-
+        self.mc.send_coords([257.6, -60.4, 100.0, 177.34, 0.0, -45.28], ARM_SPEED)
         rospy.loginfo("Opening gripper to release object...")
         self.mc.set_gripper_state(0, 100)   # 0 = เปิด
         rospy.sleep(2)
@@ -123,9 +129,10 @@ class ArmController:
         lift_coords = PLACE_COORDS.copy()
         lift_coords[2] = 300.0  # ยก Z เป็น 300 mm
         rospy.loginfo(f"Lifting arm to height {lift_coords[2]} mm...")
-        self.mc.send_coords(lift_coords, ARM_SPEED)
+        self.mc.send_coords([257.6, -60.4, 500.0, 177.34, 0.0, -45.28], ARM_SPEED)
         rospy.sleep(4)
-
+        self.mc.send_angles([0, 45, -120, -13, 0, -45],ARM_SPEED)
+        
         rospy.loginfo("Place operation completed")
         return True
 
