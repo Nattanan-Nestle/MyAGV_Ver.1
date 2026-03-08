@@ -1,164 +1,95 @@
 #!/usr/bin/env python3
-"""
-move_and_rotate.py
-
-สั่งให้หุ่นยนต์:
-1. เคลื่อนที่ไปข้างหน้า 1.0 - 1.2 เมตร (กำหนดในตัวแปร distance)
-2. หมุน 360 องศา
-3. เคลื่อนที่ไปข้างหน้าอีก 1.0 - 1.2 เมตร
-
-ใช้ Odometry ควบคุมระยะทางและมุม
-"""
-
 import rospy
-import math
-import numpy as np
+from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
-from nav_msgs.msg import Odometry
-import tf.transformations as tf
+import numpy as np
 
-class MoveAndRotate:
+class ApproachWall:
     def __init__(self):
-        rospy.init_node('move_and_rotate')
-
-        # พารามิเตอร์
-        self.distance = 1.0          # เมตร (สามารถปรับเป็น 1.0-1.2 ตามต้องการ)
-        self.rotate_angle = 360.0    # องศา
-        self.speed = 0.15             # ความเร็วเดินหน้า (m/s)
-        self.angular_speed = 0.5      # ความเร็วหมุน (rad/s) ≈ 28.6 องศา/วินาที
-        self.tolerance = 0.02          # tolerance ระยะทาง (เมตร)
-        self.angle_tolerance = 0.05    # tolerance มุม (เรเดียน) ≈ 2.86 องศา
-        self.control_rate = 20         # Hz
-
-        # ตัวแปรภายใน
-        self.current_x = 0.0
-        self.current_y = 0.0
-        self.current_yaw = 0.0
-        self.odom_received = False
-
-        # Publisher / Subscriber
+        rospy.init_node('approach_wall')
         self.cmd_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
-        self.odom_sub = rospy.Subscriber('/odom', Odometry, self.odom_callback)
-
-        self.rate = rospy.Rate(self.control_rate)
-
-        rospy.loginfo("MoveAndRotate node started. Waiting for odometry...")
-
-    def odom_callback(self, msg):
-        """อ่านตำแหน่งและมุมจาก odometry"""
-        self.current_x = msg.pose.pose.position.x
-        self.current_y = msg.pose.pose.position.y
-
-        # แปลง quaternion → euler
-        q = msg.pose.pose.orientation
-        quat = [q.x, q.y, q.z, q.w]
-        euler = tf.euler_from_quaternion(quat)
-        self.current_yaw = euler[2]   # yaw ในช่วง [-π, π]
-
-        self.odom_received = True
-
-    def move_forward(self, distance):
-        """เคลื่อนที่ไปข้างหน้าตามระยะทาง (เมตร)"""
-        rospy.loginfo(f"Start moving forward {distance:.2f} m")
-
-        # รอให้มี odometry ก่อน
-        timeout = rospy.Time.now() + rospy.Duration(5)
-        while not rospy.is_shutdown() and not self.odom_received and rospy.Time.now() < timeout:
+        self.scan_sub = rospy.Subscriber('/scan', LaserScan, self.scan_callback)
+        
+        self.target_min = 0.15  # 150 mm
+        self.target_max = 0.20  # 200 mm
+        self.speed = 0.1  # m/s
+        self.angle_range = 20  # องศา ที่ถือว่าเป็นด้านหน้า (รวม center)
+        self.scan_received = False
+        self.current_distance = float('inf')
+        
+        self.rate = rospy.Rate(10)  # 10 Hz
+        
+    def scan_callback(self, msg):
+        # หาระยะทางไปผนังด้านหน้า
+        # สมมติว่า /scan มีมุม 0 ตรงกลาง (หรือตาม configuration ของ lidar)
+        # หา index ของมุมที่ใกล้ 0 องศา
+        angle_min = msg.angle_min
+        angle_max = msg.angle_max
+        angle_increment = msg.angle_increment
+        
+        # คำนวณ index ที่ตรงกับมุม 0 (หรือใกล้ที่สุด)
+        # โดยทั่วไป lidar จะมี 0 อยู่ตรงกลาง แต่อาจจะต้องปรับตาม
+        # สมมติว่ามุม 0 อยู่ตรงกลาง ดังนั้น index = int((0 - angle_min) / angle_increment)
+        # หรือหา index ช่วงมุมที่สนใจ เช่น -10 ถึง +10 องศา
+        
+        # เปลี่ยนองศาเป็นเรเดียน
+        target_angle = 0.0  # เรเดียน
+        angle_tolerance = np.radians(self.angle_range / 2.0)  # +/- range
+        
+        distances = []
+        for i in range(len(msg.ranges)):
+            angle = angle_min + i * angle_increment
+            if abs(angle - target_angle) <= angle_tolerance:
+                d = msg.ranges[i]
+                if d > msg.range_min and d < msg.range_max and not np.isinf(d) and not np.isnan(d):
+                    distances.append(d)
+        
+        if distances:
+            # ใช้ค่าที่น้อยที่สุด (ใกล้ที่สุด) เพื่อความปลอดภัย? หรือค่าเฉลี่ย?
+            self.current_distance = min(distances)  # ใช้ค่าที่ใกล้ที่สุด
+            self.scan_received = True
+        else:
+            self.current_distance = float('inf')
+            self.scan_received = False
+            
+    def run(self):
+        rospy.loginfo("Waiting for laser scan data...")
+        while not rospy.is_shutdown() and not self.scan_received:
             self.rate.sleep()
-        if not self.odom_received:
-            rospy.logerr("No odometry data. Aborting move_forward.")
-            return False
-
-        start_x = self.current_x
-        start_y = self.current_y
-        traveled = 0.0
-
+        rospy.loginfo("Laser scan data received. Current distance: %.3f m", self.current_distance)
+        
         twist = Twist()
-        twist.linear.x = self.speed
-
-        while not rospy.is_shutdown() and traveled < distance - self.tolerance:
-            # คำนวณระยะทางที่เคลื่อนที่ไปแล้ว (Euclidean distance)
-            dx = self.current_x - start_x
-            dy = self.current_y - start_y
-            traveled = math.sqrt(dx*dx + dy*dy)
-
-            rospy.loginfo("Traveled: %.3f m / %.3f m", traveled, distance)
-
+        
+        while not rospy.is_shutdown():
+            if not self.scan_received:
+                rospy.logwarn("No laser data, stopping")
+                twist.linear.x = 0.0
+                self.cmd_pub.publish(twist)
+                continue
+            
+            d = self.current_distance
+            rospy.loginfo("Distance to wall: %.3f m", d)
+            
+            if d >= self.target_min and d <= self.target_max:
+                rospy.loginfo("Target reached. Stopping.")
+                twist.linear.x = 0.0
+                self.cmd_pub.publish(twist)
+                break
+            elif d > self.target_max:
+                # อยู่ไกลเกินไป เดินหน้า
+                twist.linear.x = self.speed
+            else:
+                # อยู่ใกล้เกินไป ถอยหลัง (แต่โจทย์เริ่มจากไกล ดังนั้นไม่น่าเจอ)
+                twist.linear.x = -self.speed/2  # ถอยช้าๆ
+            
             self.cmd_pub.publish(twist)
             self.rate.sleep()
-
-        # หยุด
-        twist.linear.x = 0.0
-        self.cmd_pub.publish(twist)
-        rospy.loginfo("Reached target distance. Final traveled: %.3f m", traveled)
-        return True
-
-    def rotate(self, angle_degrees):
-        """หมุนตามมุมที่กำหนด (องศา) ค่า + = ทวนเข็ม, - = ตามเข็ม"""
-        rospy.loginfo(f"Start rotating {angle_degrees:.1f} degrees")
-
-        # รอ odometry
-        timeout = rospy.Time.now() + rospy.Duration(5)
-        while not rospy.is_shutdown() and not self.odom_received and rospy.Time.now() < timeout:
-            self.rate.sleep()
-        if not self.odom_received:
-            rospy.logerr("No odometry data. Aborting rotate.")
-            return False
-
-        target_angle_rad = math.radians(angle_degrees)
-        last_yaw = self.current_yaw
-        angle_accumulated = 0.0
-
-        twist = Twist()
-        twist.angular.z = self.angular_speed if target_angle_rad >= 0 else -self.angular_speed
-
-        while not rospy.is_shutdown() and abs(angle_accumulated) < abs(target_angle_rad) - self.angle_tolerance:
-            # คำนวณ delta yaw แบบ unwrap
-            delta = self.current_yaw - last_yaw
-            if delta > math.pi:
-                delta -= 2 * math.pi
-            elif delta < -math.pi:
-                delta += 2 * math.pi
-
-            angle_accumulated += delta
-            last_yaw = self.current_yaw
-
-            rospy.loginfo("Rotated: %.2f° / %.2f°", math.degrees(angle_accumulated), angle_degrees)
-
-            self.cmd_pub.publish(twist)
-            self.rate.sleep()
-
-        # หยุดหมุน
-        twist.angular.z = 0.0
-        self.cmd_pub.publish(twist)
-        rospy.loginfo("Rotation completed. Final angle: %.2f°", math.degrees(angle_accumulated))
-        return True
-
-    def execute_sequence(self):
-        """ดำเนินการตามลำดับ"""
-        rospy.sleep(1)  # รอให้ odometry พร้อม
-
-        # 1. เคลื่อนที่ไปข้างหน้าครั้งแรก
-        if not self.move_forward(self.distance):
-            return
-
-        rospy.sleep(1)  # หยุดพักระหว่างภารกิจ
-
-        # 2. หมุน 360 องศา
-        if not self.rotate(self.rotate_angle):
-            return
-
-        rospy.sleep(1)
-
-        # 3. เคลื่อนที่ไปข้างหน้าครั้งที่สอง
-        if not self.move_forward(self.distance):
-            return
-
-        rospy.loginfo("All tasks completed successfully.")
+        
+        rospy.loginfo("Approach wall completed.")
 
 if __name__ == '__main__':
     try:
-        node = MoveAndRotate()
-        node.execute_sequence()
+        aw = ApproachWall()
+        aw.run()
     except rospy.ROSInterruptException:
         pass
