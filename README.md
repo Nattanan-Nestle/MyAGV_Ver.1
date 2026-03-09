@@ -28,4 +28,4 @@
 
 การเเก้ไขโค้ด move_sort_object.py 
 
-<img src="C:\Users\Nesln\OneDrive\Desktop\MyAGV\{F6625B53-C5B7-496E-9474-0749C999B874}.png" alt="คำอธิบาย" width="400"/>
+<img src="C:\Users\Nesln\OneDrive\Desktop\MyAGV\{F6625B53-C5B7-496E-9474-0749C999B874}.png"  width="400"/>
