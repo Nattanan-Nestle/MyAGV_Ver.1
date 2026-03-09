@@ -14,7 +14,7 @@ from pymycobot import MyCobotSocket
 # ------------------------------------------------------------------
 # ค่าคงที่ (ปรับตามการ calibrate ของคุณ)
 # ------------------------------------------------------------------
-SCALE = 0.3923
+SCALE = 0.4030
 CX = 320
 CY = 240
 OFFSET_X = 265
@@ -24,25 +24,25 @@ FIXED_RY = -0.29
 FIXED_RZ = -45.26
 
 COLOR_RANGES = {
-    "Red":    [(168, 147, 149),  (179, 255, 255)],
-    "Green":  [(75, 194, 157),   (83, 255, 214)],
+    "Red":    [(169, 119, 139),  (179, 255, 255)],
+    "Green":  [(68, 87, 61),   (81, 255, 255)], 
 }
 
 TARGET_COLOR = "Red"
 TARGET_SHAPE = "Hexagon"
 
 SPEED = 20
-ARM_IP = "192.168.137.24"
+ARM_IP = "192.168.137.119"
 ARM_PORT = 9000
 
 # ตำแหน่งวางวัตถุ (บน AGV หรือจุดทิ้ง)
 PLACE_X, PLACE_Y, PLACE_Z = 89.2, -64.2, 194.6
 
-# ค่าควบคุม AGV
+#ค่าควบคุม AGV
 LINEAR_SPEED = 0.2        # m/s
-ANGULAR_SPEED = 0.5       # rad/s
+ANGULAR_SPEED = 0.33       # rad/s
 POS_TOLERANCE = 0.05      # เมตร ( tolerance การขับถึงจุด)
-ANGLE_TOLERANCE = 0.05    # เรเดียน (~3 องศา)
+ANGLE_TOLERANCE = 0.01    # เรเดียน (~3 องศา)
 
 # ------------------------------------------------------------------
 # คลาส AGVMover (ใช้ IMU สำหรับหมุน, odometry สำหรับระยะทาง)
@@ -94,7 +94,7 @@ class AGVMover:
             if abs(error) < ANGLE_TOLERANCE:
                 break
 
-            twist.angular.z = np.clip(2.0 * error, -ANGULAR_SPEED, ANGULAR_SPEED)
+            twist.angular.z = np.clip(1.45 * error, -ANGULAR_SPEED, ANGULAR_SPEED)
             self.cmd_pub.publish(twist)
             rate.sleep()
 
@@ -131,9 +131,59 @@ class AGVMover:
 # ------------------------------------------------------------------
 # ฟังก์ชันตรวจจับวัตถุ (เหมือนเดิม)
 # ------------------------------------------------------------------
+# ------------------------------------------------------------------
+# ฟังก์ชันตรวจจับวัตถุ (คืนค่าเป็นลิสต์ของวัตถุทั้งหมดที่พบ)
+# ------------------------------------------------------------------
 def detect_objects(frame, scale):
-    # ... (เหมือนเดิม) ...
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    objects = []
 
+    for color_name, (lower, upper) in COLOR_RANGES.items():
+        lower = np.array(lower)
+        upper = np.array(upper)
+        mask = cv2.inRange(hsv, lower, upper)
+
+        kernel = np.ones((5,5), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            if area < 250:
+                continue
+
+            approx = cv2.approxPolyDP(cnt, 0.04 * cv2.arcLength(cnt, True), True)
+            sides = len(approx)
+
+            shape = ""
+            if sides == 4:
+                x, y, w, h = cv2.boundingRect(approx)
+                ratio = float(w) / h
+                if 0.9 <= ratio <= 1.1:
+                    shape = "Square"
+            elif sides == 6:
+                shape = "Hexagon"
+
+            if shape == "":
+                continue
+
+            M = cv2.moments(cnt)
+            if M["m00"] != 0:
+                cX = int(M["m10"] / M["m00"])
+                cY = int(M["m01"] / M["m00"])
+            else:
+                x, y, w, h = cv2.boundingRect(cnt)
+                cX = x + w//2
+                cY = y + h//2
+
+            world_x = - (cX - CX) * scale
+            world_y = (cY - CY) * scale
+
+            objects.append((world_x, world_y, color_name, shape, cX, cY))
+
+    return objects
 # ------------------------------------------------------------------
 # ฟังก์ชันให้แขนทำงาน ณ จุดปัจจุบัน (scan, pick, place)
 # คืนค่า True ถ้าหยิบวัตถุสำเร็จ, False ถ้าไม่พบ
@@ -145,14 +195,18 @@ def scan_and_pick(mc):
     time.sleep(5)
 
     # 2. ถ่ายภาพ
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(1)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-    ret, frame = cap.read()
+    
+    for i in range(100):
+        ret, frame = cap.read()
+        if not ret:
+            print("ไม่สามารถอ่านภาพจากกล้องได้")
+            cap.release()
+            return
+
     cap.release()
-    if not ret:
-        print(" cannot read camera")
-        return False
 
     # 3. ตรวจจับ
     objects = detect_objects(frame, SCALE)
@@ -212,27 +266,20 @@ def scan_and_pick(mc):
     time.sleep(5)
     mc.send_coords([PLACE_X, PLACE_Y, PLACE_Z, FIXED_RX, FIXED_RY, FIXED_RZ], SPEED)
     time.sleep(5)
-
-    # 12. เปิด gripper วาง
-    mc.set_gripper_state(0, 100)
-    time.sleep(3)
-
-    # 13. ยก Z ขึ้นจากจุดวาง
-    new_place_z = PLACE_Z + 150
-    mc.send_coords([PLACE_X, PLACE_Y, new_place_z, FIXED_RX, FIXED_RY, FIXED_RZ], SPEED)
-    time.sleep(4)
-
+    
+    mc.send_angles([0, -20, -65, 0, 0, -45], SPEED)
+    
     # 14. พับแขนกลับ home
     mc.send_angles([0, 45, -120, -13, 0, -45], SPEED)
     time.sleep(5)
 
     # แสดงภาพ
-    cv2.circle(frame, (cX, cY), 5, (255,255,255), -1)
-    cv2.putText(frame, f"{color_name} {shape} (target)", (cX+40, cY-10),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,0,0), 2)
-    cv2.imshow("Detection", frame)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    # cv2.circle(frame, (cX, cY), 5, (255,255,255), -1)
+    # cv2.putText(frame, f"{color_name} {shape} (target)", (cX+40, cY-10),
+    #             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,0,0), 2)
+    # cv2.imshow("Detection", frame)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
 
     return True
 
@@ -268,7 +315,7 @@ def main():
     print("Step 2: Scanning at point A")
     found = scan_and_pick(mc)
     if found:
-        print("Object found and placed. Mission complete.")
+        print("Mission complete.")
         return
 
     # ----------------------------------------------------------
@@ -295,7 +342,7 @@ def main():
     print("Step 6: Scanning at point B")
     found = scan_and_pick(mc)
     if found:
-        print("Object found at point B. Mission complete.")
+        print("Mission complete.")
     else:
         print("No object found at point B. Mission finished.")
 
