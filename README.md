@@ -28,4 +28,4 @@
 
 การเเก้ไขโค้ด move_sort_object.py 
 
-![คำอธิบายรูป](1518CB4F-86A9-4B4C-856D-D4A39C5ADF3A.png)
+(1518CB4F-86A9-4B4C-856D-D4A39C5ADF3A.png)
