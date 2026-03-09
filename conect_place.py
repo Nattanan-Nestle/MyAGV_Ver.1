@@ -56,13 +56,12 @@ def main():
     time.sleep(3)
 
     # 7. อ่านตำแหน่งปัจจุบัน (ถ้าต้องการ)
-    current = mc.get_coords()
-    if current:
-        print(f"ตำแหน่งปัจจุบัน: x={current[0]:.1f}, y={current[1]:.1f}, z={current[2]:.1f}")
-
+    # coords = mc.get_coords()
+    # print(coords)
+    
     # mc.send_coords([257.6, -60.4, 300, 177.34, 0.0, -45.28], SPEED)
     # time.sleep(5)
-   # The line `mc.send_angles([0, 45, -120, -13, 0, -45], SPEED)` is sending a sequence of joint
+    mc.send_angles([0, 45, -120, -13, 0, -45], SPEED)
 
 if __name__ == "__main__":
     main()
