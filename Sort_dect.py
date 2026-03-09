@@ -26,7 +26,7 @@ COLOR_RANGES = {
 
 # กำหนดเป้าหมายที่ต้องการ (เปลี่ยนได้ตามต้องการ)
 TARGET_COLOR = "Red"      # สีที่ต้องการ
-TARGET_SHAPE = "Hexagon"   # รูปร่างที่ต้องการ
+TARGET_SHAPE = "Hexagon"   # รูปร่างที่ต้องการ เช่น "Square", "Hexagon" 
 
 SPEED = 20
 

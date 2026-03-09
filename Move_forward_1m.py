@@ -40,8 +40,8 @@ class MoveForwardDistance:
         
         rate = rospy.Rate(10)  # 10 Hz
         while not rospy.is_shutdown() and self.moving:
-            # คำนวณระยะทางที่เคลื่อนที่ไปแล้ว (Euclidean distance)
-            dx = self.current_x - self.start_x
+            # คำนวณระยะทางที่เคลื่อนที่ไปแล้ว (Euclid ean distance)
+            dx = self.current_x - self.start_xs
             dy = self.current_y - self.start_y
             traveled = math.sqrt(dx*dx + dy*dy)
             

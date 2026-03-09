@@ -224,7 +224,7 @@ class AGVWithArm:
 
         # กำหนดเป้าหมายที่ต้องการหยิบ (เปลี่ยนได้ตามต้องการ)
         target_shape = "Square"   # หรือ "Square"
-        target_color = "Red"       # หรือ "Green" หรือ None ถ้าไม่สนใจสี
+        target_color = "None"       # หรือ "Green" หรือ None ถ้าไม่สนใจสี
         self.arm = ArmController(target_shape=target_shape, target_color=target_color)
 
     def run(self):
