@@ -54,14 +54,12 @@ def main():
     print("สั่ง gripper กางออก...")
     mc.set_gripper_state(0, 100)   # 0 = เปิด
     time.sleep(3)
-
-    # 7. อ่านตำแหน่งปัจจุบัน (ถ้าต้องการ)
-    # coords = mc.get_coords()
-    # print(coords)
     
-    # mc.send_coords([257.6, -60.4, 300, 177.34, 0.0, -45.28], SPEED)
-    # time.sleep(5)
+    mc.send_angles([0, -20, -65, 0, 0, -45], SPEED)
+    time.sleep(5)
+    
+    # กลับสู่ท่า home
     mc.send_angles([0, 45, -120, -13, 0, -45], SPEED)
-
+    # print("กลับสู่ท่า home เรียบร้อย")
 if __name__ == "__main__":
     main()
