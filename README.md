@@ -28,4 +28,8 @@
 
 การเเก้ไขโค้ด move_sort_object.py 
 
-(1518CB4F-86A9-4B4C-856D-D4A39C5ADF3A.png)
+การเเก้ไขส่วนของวัตถุ เเละ รูปร่างที่จะหยิบ 
+
+เเก้ไขในส่วนนี้ บรทัดที่ 31, 32 
+TARGET_COLOR = "Red" เเก้ไขเป็น สีที่ต้องการ Red, Green
+TARGET_SHAPE = "Hexagon" เเก้ไขเป็นตามรูปร่างที่ต้องการ  Hexagon, Square 
