@@ -20,3 +20,12 @@
 
 ต้องใช้คำสั่ง roslaunch myagv_odometry myagv_active.launch ก่อนเสมอเพราะจะใช้ค่า odomety จาก Lidar IMU Encoder ของหุ่นยนต์  
 
+
+สิ่งที่เพิ่ม move_sort_object.py 
+1. ฝั่ง Mycobot280 รันไฟล์ server.py
+2. ฝั่ง MyAGV รัน myagv_odometry myagv_active.launch
+3. จากนั้นรัน python3 move_sort_object.py 
+
+การเเก้ไขโค้ด move_sort_object.py 
+
+<img src="C:\Users\Nesln\OneDrive\Desktop\MyAGV\{F6625B53-C5B7-496E-9474-0749C999B874}.png" alt="คำอธิบาย" width="400"/>
