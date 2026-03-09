@@ -39,10 +39,10 @@ ARM_PORT = 9000
 PLACE_X, PLACE_Y, PLACE_Z = 89.2, -64.2, 194.6
 
 #ค่าควบคุม AGV
-LINEAR_SPEED = 0.2        # m/s
-ANGULAR_SPEED = 0.33       # rad/s
+LINEAR_SPEED = 0.2        # m/s ปรับความเร็ววิ่งตรง
+ANGULAR_SPEED = 0.33       # rad/s ความเร็วในการเลี้ยว 
 POS_TOLERANCE = 0.05      # เมตร ( tolerance การขับถึงจุด)
-ANGLE_TOLERANCE = 0.01    # เรเดียน (~3 องศา)
+ANGLE_TOLERANCE = 0.01    # เรเดียน 
 
 # ------------------------------------------------------------------
 # คลาส AGVMover (ใช้ IMU สำหรับหมุน, odometry สำหรับระยะทาง)
@@ -128,9 +128,7 @@ class AGVMover:
         self.stop()
         rospy.loginfo(f"Driven forward {traveled:.2f} m")
 
-# ------------------------------------------------------------------
-# ฟังก์ชันตรวจจับวัตถุ (เหมือนเดิม)
-# ------------------------------------------------------------------
+
 # ------------------------------------------------------------------
 # ฟังก์ชันตรวจจับวัตถุ (คืนค่าเป็นลิสต์ของวัตถุทั้งหมดที่พบ)
 # ------------------------------------------------------------------
@@ -272,14 +270,6 @@ def scan_and_pick(mc):
     # 14. พับแขนกลับ home
     mc.send_angles([0, 45, -120, -13, 0, -45], SPEED)
     time.sleep(5)
-
-    # แสดงภาพ
-    # cv2.circle(frame, (cX, cY), 5, (255,255,255), -1)
-    # cv2.putText(frame, f"{color_name} {shape} (target)", (cX+40, cY-10),
-    #             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,0,0), 2)
-    # cv2.imshow("Detection", frame)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
 
     return True
 
