@@ -17,10 +17,10 @@ FIXED_RX = -178.69
 FIXED_RY = -0.29
 FIXED_RZ = -45.26
 
-COLOR_RANGES = {
-    "Red":    [(168, 151, 185),  (175, 255, 255)],
-    "Green":  [(75, 194, 157),   (83, 255, 214)],
-}
+# COLOR_RANGES = {
+#     "Red":    [(168, 151, 185),  (175, 255, 255)],
+#     "Green":  [(75, 194, 157),   (83, 255, 214)],
+# }
 
 SPEED = 20
 
@@ -165,6 +165,8 @@ def main():
     if current:
         print(f"ตำแหน่งปัจจุบัน: x={current[0]:.1f}, y={current[1]:.1f}, z={current[2]:.1f}")
 
+    mc.send_coords([257.6, -60.4, 400.0, 177.34, 0.0, -45.28], SPEED)
+    time.sleep(5)
     mc.send_angles([0, 45, -120, -13, 0, -45], SPEED)
     # 8. ลด Z ลงไปหยิบ
     # print("ลด Z ลงไปหยิบ...")
